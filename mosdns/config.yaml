@@ -1,0 +1,24 @@
+log:
+  level: info
+  file: ""
+
+plugins:
+  - tag: forward_local
+    type: forward
+    args:
+      upstream:
+        - addr: "223.5.5.5"
+        - addr: "119.29.29.29"
+
+  - tag: main_sequence
+    type: sequence
+    args:
+      - exec: forward_local
+
+servers:
+  - exec: main_sequence
+    listeners:
+      - protocol: udp
+        addr: ":5353"
+      - protocol: tcp
+        addr: ":5353"
