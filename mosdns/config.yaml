@@ -2,7 +2,13 @@ log:
   level: info
   file: ""
 
+data_providers:
+  - tag: geosite
+    file: "/etc/mosdns/geosite.dat"
+    auto_reload: true
+
 plugins:
+  # 国内DNS服务器
   - tag: forward_local
     type: forward
     args:
@@ -10,15 +16,33 @@ plugins:
         - addr: "223.5.5.5"
         - addr: "119.29.29.29"
 
+  # sing-box DNS服务器（用于国外域名）
+  - tag: forward_remote
+    type: forward
+    args:
+      upstream:
+        - addr: "127.0.0.1:1053"  # sing-box DNS监听端口
+
+  # 匹配中国域名
+  - tag: match_cn
+    type: domain_set
+    args:
+      data: "geosite:cn"
+      from: "geosite"
+
+  # 主要处理序列
   - tag: main_sequence
     type: sequence
     args:
-      - exec: forward_local
+      - matches: 
+          - domain_set: match_cn
+        exec: forward_local
+      - exec: forward_remote
 
 servers:
   - exec: main_sequence
     listeners:
       - protocol: udp
-        addr: ":5353"
+        addr: ":53"
       - protocol: tcp
-        addr: ":5353"
+        addr: ":53"

@@ -4,16 +4,17 @@ FROM alpine:latest
 RUN apk add --no-cache supervisor curl
 
 # 安装sing-box
-RUN wget https://github.com/SagerNet/sing-box/releases/download/v1.8.0/sing-box-1.8.0-linux-amd64.tar.gz && \
-    tar -xzf sing-box-1.8.0-linux-amd64.tar.gz && \
+RUN wget https://github.com/SagerNet/sing-box/releases/download/v1.11.4/sing-box-1.11.4-linux-amd64.tar.gz && \
+    tar -xzf sing-box-1.11.4-linux-amd64.tar.gz && \
     mv sing-box-*/sing-box /usr/local/bin/ && \
     rm -rf sing-box-*
 
 # 安装mosdns
-RUN wget https://github.com/IrineSistiana/mosdns/releases/download/v5.3.1/mosdns-linux-amd64.zip && \
+RUN wget https://github.com/IrineSistiana/mosdns/releases/download/v5.3.3/mosdns-linux-amd64.zip && \
     unzip mosdns-linux-amd64.zip && \
     mv mosdns /usr/local/bin/ && \
-    rm mosdns-linux-amd64.zip
+    rm mosdns-linux-amd64.zip && \
+    wget -O /etc/mosdns/geosite.dat https://github.com/v2fly/domain-list-community/releases/latest/download/dlc.dat
 
 # 创建配置目录
 RUN mkdir -p /etc/sing-box /etc/mosdns

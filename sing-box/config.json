@@ -6,11 +6,24 @@
   "dns": {
     "servers": [
       {
-        "tag": "local",
-        "address": "127.0.0.1:5353",
+        "tag": "google",
+        "address": "https://dns.google/dns-query",
+        "detour": "direct"
+      },
+      {
+        "tag": "cloudflare",
+        "address": "https://cloudflare-dns.com/dns-query",
         "detour": "direct"
       }
-    ]
+    ],
+    "rules": [
+      {
+        "server": "google",
+        "disable_cache": false
+      }
+    ],
+    "listen": ":1053",
+    "strategy": "prefer_ipv4"
   },
   "inbounds": [
     {
@@ -22,8 +35,20 @@
   ],
   "outbounds": [
     {
+      "type": "dns",
+      "tag": "dns-out"
+    },
+    {
       "type": "direct",
       "tag": "direct"
     }
-  ]
+  ],
+  "route": {
+    "rules": [
+      {
+        "protocol": "dns",
+        "outbound": "dns-out"
+      }
+    ]
+  }
 }
