@@ -14,16 +14,64 @@
         "tag": "cloudflare",
         "address": "https://cloudflare-dns.com/dns-query",
         "detour": "direct"
+      },
+      {
+        "tag": "quad9",
+        "address": "https://dns.quad9.net/dns-query",
+        "detour": "direct"
+      },
+      {
+        "tag": "local",
+        "address": "223.5.5.5",
+        "detour": "direct"
       }
     ],
     "rules": [
       {
-        "server": "google",
-        "disable_cache": false
+        "domain": [
+          "time.windows.com",
+          "pool.ntp.org",
+          "time.apple.com",
+          "time.asia.apple.com",
+          "time.google.com",
+          "ntp.org",
+          "cn.pool.ntp.org",
+          "ntp.aliyun.com",
+          "time1.cloud.tencent.com",
+          "time2.cloud.tencent.com",
+          "time.nist.gov"
+        ],
+        "server": "local",
+        "disable_cache": false,
+        "rewrite_ttl": 14400,
+        "action": "route"
+      },
+      {
+        "rule_set": ["geosite-cn", "apple-cn", "google-cn"],
+        "server": "local",
+        "disable_cache": false,
+        "rewrite_ttl": 14400,
+        "action": "route"
+      },
+      {
+        "rule_set": ["geoip-cn"],
+        "server": "local",
+        "client_subnet": "114.114.114.114/24",
+        "rewrite_ttl": 14400,
+        "action": "route"
+      },
+      {
+        "query_type": ["A", "AAAA"],
+        "server": ["google", "cloudflare", "quad9"],
+        "rewrite_ttl": 14400,
+        "action": "route"
       }
     ],
+    "final": "google",
+    "independent_cache": true,
     "listen": ":1053",
-    "strategy": "prefer_ipv4"
+    "strategy": "prefer_ipv4",
+    "cache_capacity": 8192
   },
   "inbounds": [
     {
@@ -39,6 +87,10 @@
       "tag": "dns-out"
     },
     {
+      "type": "block",
+      "tag": "dns-block"
+    },
+    {
       "type": "direct",
       "tag": "direct"
     }
@@ -48,6 +100,49 @@
       {
         "protocol": "dns",
         "outbound": "dns-out"
+      },
+      {
+        "rule_set": ["geosite-cn", "apple-cn", "google-cn"],
+        "outbound": "direct"
+      },
+      {
+        "rule_set": ["geoip-cn"],
+        "outbound": "direct"
+      }
+    ],
+    "auto_detect_interface": true,
+    "rule_set": [
+      {
+        "type": "remote",
+        "tag": "geosite-cn",
+        "format": "binary",
+        "url": "https://github.com/Dreista/sing-box-rule-set-cn/raw/rule-set/accelerated-domains.china.conf.srs",
+        "download_detour": "direct",
+        "update_interval": "24h"
+      },
+      {
+        "type": "remote",
+        "tag": "apple-cn",
+        "format": "binary",
+        "url": "https://github.com/Dreista/sing-box-rule-set-cn/raw/rule-set/apple.china.conf.srs",
+        "download_detour": "direct",
+        "update_interval": "24h"
+      },
+      {
+        "type": "remote",
+        "tag": "google-cn",
+        "format": "binary",
+        "url": "https://github.com/Dreista/sing-box-rule-set-cn/raw/rule-set/google.china.conf.srs",
+        "download_detour": "direct",
+        "update_interval": "24h"
+      },
+      {
+        "type": "remote",
+        "tag": "geoip-cn",
+        "format": "binary",
+        "url": "https://github.com/Dreista/sing-box-rule-set-cn/raw/rule-set/apnic-cn-ipv4.srs",
+        "download_detour": "direct",
+        "update_interval": "24h"
       }
     ]
   }

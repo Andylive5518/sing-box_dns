@@ -1,0 +1,323 @@
+log:
+  level: info
+  file: "/var/log/mosdns.log"
+
+api:
+  http: "0.0.0.0:9091"
+
+# include 的插件会比本配置文件中的插件先初始化。
+include: []
+
+plugins:
+  # 国内域名
+  - tag: geosite_cn
+    type: domain_set
+    args:
+      files:
+        - "/etc/mosdns/rules/geosite-cn.txt"
+
+  # 国外域名
+  - tag: geosite_no_cn
+    type: domain_set
+    args:
+      files:
+        - "/etc/mosdns/rules/geosite-geolocation-!cn.txt"
+        - "/etc/mosdns/rules/geosite-all@!cn.txt"
+
+  # CDN域名
+  - tag: geosite_cdn_cn
+    type: domain_set
+    args:
+      files:
+        - "/etc/mosdns/rules/geosite-all@cn.txt"
+
+  # 国内IP
+  - tag: geoip_cn
+    type: ip_set
+    args:
+      files:
+        - "/etc/mosdns/rules/cn_all.txt"
+
+  # 直连域名
+  - tag: direct-list
+    type: domain_set
+    args:
+      files:
+        - "/etc/mosdns/rules/direct-list.txt"
+        - "/etc/mosdns/rules/china-list.txt"
+        - "/etc/mosdns/rules/custom.txt"
+
+  # 代理域名
+  - tag: proxy-list
+    type: domain_set
+    args:
+      files:
+        - "/etc/mosdns/rules/proxy-list.txt"
+
+  # GFWList 域名
+  - tag: gfw
+    type: domain_set
+    args:
+      files:
+        - "/etc/mosdns/rules/gfw.txt"
+
+  # NTP域名
+  - tag: ntp
+    type: domain_set
+    args:
+      files:
+        - "/etc/mosdns/rules/ntp_domains.txt"
+
+  # 防DNS泄漏检测
+  - tag: hosts
+    type: hosts
+    args:
+      files:
+        - "/etc/mosdns/hosts.txt"
+
+  # 广告域名
+  - tag: adlist
+    type: domain_set
+    args:
+      files:
+        - "/etc/mosdns/rules/reject-list.txt"
+        - "/etc/mosdns/rules/anti-ad-domains.txt"
+        - "/etc/mosdns/rules/mosdns_adrules.txt"
+        - "/etc/mosdns/rules/neodevpro_domains.txt"
+
+  # PTR 黑名单
+  - tag: local_ptr
+    type: domain_set
+    args:
+      files:
+        - "/etc/mosdns/local-ptr.txt"
+
+  # 国内DNS服务器
+  - tag: forward_local
+    type: forward
+    args:
+      concurrent: 3
+      upstreams:
+        - tag: AliDNS_DoH
+          addr: https://dns.alidns.com/dns-query
+          bootstrap: "223.5.5.5"
+        - tag: DNSPod_DoH
+          addr: https://doh.pub/dns-query
+          bootstrap: "119.29.29.29"
+        - tag: 360DNS_DoH
+          addr: https://doh.360.cn/dns-query
+          bootstrap: "101.226.4.6"
+        - tag: 114_Primary
+          addr: 114.114.114.114
+        - tag: 114_Secondary
+          addr: 114.114.115.115
+        - tag: CNNIC_Primary
+          addr: 1.2.4.8
+        - tag: CNNIC_Secondary
+          addr: 210.2.4.8
+        - tag: Baidu
+          addr: 180.76.76.76
+
+  # sing-box DNS服务器（用于国外域名）
+  - tag: forward_remote
+    type: forward
+    args:
+      concurrent: 3
+      upstreams:
+        - tag: google_DoH
+          addr: https://dns.google/dns-query
+          bootstrap: "8.8.8.8"
+          socks5: "127.0.0.1:2080"
+        - tag: cloudflare_DoH
+          addr: https://dns.cloudflare.com/dns-query
+          bootstrap: "1.0.0.1"
+          socks5: "127.0.0.1:2080"
+        - tag: ibm_DoH
+          addr: https://dns.quad9.net/dns-query
+          bootstrap: "9.9.9.9"
+          socks5: "127.0.0.1:2080"
+        - tag: cisco_DoH
+          addr: https://dns.opendns.com/dns-query
+          bootstrap: "208.67.222.222"
+          socks5: "127.0.0.1:2080"
+        - tag: yandex_DoH
+          addr: https://common.dot.dns.yandex.net
+          bootstrap: "77.88.8.8"
+          socks5: "127.0.0.1:2080"
+  
+  # IP反查功能
+  - tag: ptr
+    type: reverse_lookup
+    args:
+      ttl: 1800
+      handle_ptr: true
+
+   # DNS缓存
+  - tag: cache
+    type: cache
+    args:
+      size: 8192 # 增大缓存容量
+      lazy_cache_ttl: 28800 # 8小时(单位:秒)
+      dump_file: "/etc/mosdns/cache.dump"
+      dump_interval: 600
+
+  # 不修改TTL
+  - tag: no_modify_ttl
+    type: sequence
+    args:
+      - exec: ttl 0-0
+
+    # 修改TTL
+  - tag: modify_ttl
+    type: sequence
+    args:
+      - exec: ttl 5-5
+  
+  # 有响应终止返回
+  - tag: has_resp_sequence
+    type: sequence
+    args:
+      - matches: qname $geosite_cdn_cn
+        exec: $modify_ttl
+      - matches: "!qname $geosite_cdn_cn"
+        exec: $no_modify_ttl
+      - matches: has_resp
+        exec: accept
+
+  # ipset操作 - 添加到ipset集合
+  - tag: ipset_cn
+    type: sequence
+    args:
+      - exec: ipset cn_ip_set,inet,24 cn_ip_set6,inet6,48
+
+  # ipset操作 - 添加到非中国ipset集合
+  - tag: ipset_no_cn
+    type: sequence
+    args:
+      - exec: ipset no_cn_ip_set,inet,24 no_cn_ip_set6,inet6,48
+
+  # 国内解析
+  - tag: local_sequence
+    type: sequence
+    args:
+      - exec: ecs 1.2.4.8
+      - exec: $forward_local
+
+  # 国外解析
+  - tag: remote_sequence
+    type: sequence
+    args:
+      - exec: prefer_ipv4
+      - exec: ecs 204.13.154.3
+      - exec: $forward_remote
+
+  # 检查IP是否为非中国IP，如果是则添加到ipset并丢弃响应
+  - tag: query_is_no_local_ip
+    type: sequence
+    args:
+      - exec: $local_sequence
+      - matches:
+          - "!resp_ip $geoip_cn"
+        exec:
+          - $ipset_no_cn
+      - exec: drop_resp
+  
+  # 查询国内域名
+  - tag: query_is_local_domain
+    type: sequence
+    args:
+      - matches: qname $geosite_cn
+        exec: $local_sequence
+
+  # 查询国外域名
+  - tag: query_is_no_local_domain
+    type: sequence
+    args:
+      - matches: qname $geosite_no_cn
+        exec: $remote_sequence
+  
+  # fallback机制 - 未匹配域名的回滚机制
+  - tag: fallback
+    type: fallback
+    args:
+      primary: remote_sequence
+      secondary: remote_sequence
+      threshold: 500
+      always_standby: true
+
+    # fallback机制 - 未匹配 CDN 域名的回滚机制
+  - tag: cdn_fallback
+    type: fallback
+    args:
+      primary: query_is_no_local_ip
+      secondary: local_sequence
+      threshold: 100
+      always_standby: true
+
+  # 查询CDN域名
+  - tag: query_is_cdn_domain
+    type: sequence
+    args:
+      - matches: "!qname $geosite_cdn_cn"
+        exec: $return
+      - exec: $cdn_fallback
+
+  # 拒绝广告域名和特定查询类型
+  - tag: query_is_reject
+    type: sequence
+    args:
+      - matches:
+          - qname $adlist
+        exec: reject 3
+      - matches:
+          - qtype 12
+          - qname $local_ptr
+        exec: reject 3
+      - matches:
+          - qtype 65
+        exec: reject 3
+
+  # 主要处理序列
+  - tag: main_sequence
+    type: sequence
+    args:
+      # 首先检查 hosts 文件
+      - exec: $hosts
+      - exec: jump has_resp_sequence
+      # 对非国外CDN域名、非广告域名、非本地PTR查询使用缓存
+      - matches:
+          - "!qname $geosite_cdn_cn"
+          - "!qname $adlist"
+          - "!qname $local_ptr"
+        exec: $cache
+      # 添加IP反查功能
+      - exec: $ptr
+      # 广告屏蔽
+      - exec: $query_is_reject
+      # NTP域名 - 始终使用国内DNS解析
+      - matches:
+          - qname $ntp
+        exec: $local_sequence
+      - exec: jump has_resp_sequence
+      # 中国域名
+      - exec: $query_is_local_domain
+      - exec: jump has_resp_sequence
+      # 非中国域名
+      - exec: $query_is_no_local_domain
+      - exec: jump has_resp_sequence
+      # 未匹配域名
+      - exec: $fallback
+      - exec: jump has_resp_sequence
+
+  # 启动监听服务
+  - tag: udp_server
+    type: udp_server
+    args:
+      entry: main_sequence
+      listen: ":53"
+
+  - tag: tcp_server
+    type: tcp_server
+    args:
+      entry: main_sequence
+      listen: ":53"
